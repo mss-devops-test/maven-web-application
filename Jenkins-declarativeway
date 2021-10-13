@@ -1,0 +1,54 @@
+pipeline{
+    
+    agent any
+    
+    tools{
+        maven "maven3.6.2"
+    }
+    
+    options{
+        buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '5'))
+        
+        timestamps()
+    }
+    
+    triggers{
+        pollSCM('* * * * *')
+    }
+    
+    stages{
+        
+        stage('CheckOutCode'){
+            steps{
+                git branch: 'development', url: 'https://github.com/mss-devops-test/maven-web-application.git'
+            }
+        }
+        
+        stage('Builds'){
+            steps{
+                sh "mvn clean package"
+            }
+        }
+        
+        stage('ExecuteSonarQubeReport'){
+            steps{
+                sh "mvn sonar:sonar"
+            }
+        }
+        
+        stage('UploadArtifactintoNexusRepo'){
+            steps{
+                sh "mvn clean deploy"
+            }
+        }
+        
+        stage('DeployAppintoTomcatServer'){
+            steps{
+                sshagent(['1c39cb78-95f3-4cc0-a843-91c3698d1c69']) {
+    sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ubuntu@65.0.108.218:/opt/apache-tomcat-9.0.53/webapps"
+
+            }
+        }
+        }
+    }
+}
